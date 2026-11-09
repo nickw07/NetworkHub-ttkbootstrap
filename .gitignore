@@ -1,0 +1,22 @@
+# virtual environment
+.venv/
+
+# PyCharm-Project files
+.idea/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+
+# Mac & Windows typical data
+.DS_Store
+Thumbs.db
+
+# Logs, databases, temporary data
+*.log
+*.db
+
+# other
+*.pyo
+*.pyd
+*.swp

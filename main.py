@@ -6,6 +6,17 @@ import speedtest
 class NetworkMethods:
     @staticmethod
     def perform_speedtest():
+        '''
+        network_test = speedtest.Speedtest()
+
+        best_server = network_test.get_best_server()  # -> choose best server
+
+        # download, upload, ping
+        download_result = round(network_test.download() / 1_000_000, 2)
+        upload_result = round(network_test.upload() / 1_000_000, 2)
+        ping_result = round(best_server['latency'])
+        '''
+
         download_result = "512"
         upload_result = "122"
         ping_result = "7"
@@ -20,7 +31,8 @@ class NetworkMethods:
     @staticmethod
     def toggle_theme():
         style = ttk.Style()
-        style.theme_use(ThemeManager.LIGHT_THEME if style.theme.name == ThemeManager.DARK_THEME else ThemeManager.DARK_THEME)'''
+        style.theme_use(ThemeManager.LIGHT_THEME if style.theme.name == ThemeManager.DARK_THEME else ThemeManager.DARK_THEME)
+'''
 
 
 class MainWindow(ttk.Window):
@@ -30,8 +42,14 @@ class MainWindow(ttk.Window):
         self.minsize(700, 500)
         self.columnconfigure(0, weight=1)
 
+        # style & optimization
         self.style_ref = ttk.Style()
 
+        self._layout_theme = None
+        self.bind("<<ThemeChanged>>", lambda e: self.after_idle(self._remove_button_focus))
+        self._remove_button_focus()
+
+        # frame creation
         heading_frame = HeadingFrame(self, style_ref=self.style_ref)
         heading_frame.grid(row=0, column=0, sticky=EW)
 
@@ -40,6 +58,20 @@ class MainWindow(ttk.Window):
 
         separator = ttk.Separator(self)
         separator.grid(row=2, column=0, columnspan=3, sticky=EW)
+
+    def _remove_button_focus(self):
+        theme = self.style_ref.theme.name
+        if theme == self._layout_theme:  # Guard against infinite loops
+            return
+        self._layout_theme = theme
+
+        self.style_ref.layout("TButton", [
+            ("Button.border", {"sticky": "nswe", "children": [
+                ("Button.padding", {"sticky": "nswe", "children": [
+                    ("Button.label", {"sticky": "nswe"})
+                ]})
+            ]})
+        ])
 
     def on_start_button(self):
         # run test
@@ -126,23 +158,50 @@ class MetricFrame(ttk.Frame):
 
 
 class ActionFrame(ttk.Frame):
+    STYLE = "Start.Link.TButton"   # inherits from Link.TButton (= bootstyle="link")
+
     def __init__(self, parent, on_start, style_ref):
         super().__init__(parent)
+
+        self.style = style_ref
+        self._styled_theme = None
 
         self.UNI_CODE = "\u25B6"
         self.SPACE = " " * 3
 
-        '''self.style = style_ref
-        self.style.configure("StartButton.TButton", font=("Segoe UI Variable Text", 12, "bold"))
-
-
-        start_button = ttk.Button(self, text=f"{self.UNI_CODE}{self.SPACE}START SPEEDTEST", style="StartButton.TButton", cursor="hand2", command=on_start)'''
-        start_button = ttk.Button(self, text=f"{self.UNI_CODE}{self.SPACE}START SPEEDTEST", bootstyle="link",
-                                  cursor="hand2", command=on_start)
+        start_button = ttk.Button(self,
+                                  text=f"{self.UNI_CODE}{self.SPACE}START SPEEDTEST",
+                                  bootstyle="link", cursor="hand2", command=on_start)
         start_button.grid(row=0, column=0, pady=(0, 5))
+
+        # assign a custom style (Link.TButton is created via `bootstyle="link"` from ttkbootstrap)
+        start_button.configure(style=self.STYLE)
+
+        # reapply style whenever the theme changes
+        start_button.bind("<<ThemeChanged>>", lambda e: self.after_idle(self._apply_button_style))
+        self._apply_button_style()
+
+    def _apply_button_style(self):
+        theme = self.style.theme.name
+        if theme == self._styled_theme:   # Guard: style.configure itself triggers <<ThemeChanged>> again
+            return
+        self._styled_theme = theme
+
+        base = "Link.TButton"
+
+        # font settings
+        self.style.configure(self.STYLE,
+                             font=("Segoe UI Variable Text", 12, "bold"),
+                             padding=(20, 10))
+
+        # Retrieve the default colors from the current theme and fix them for all states -> no hover effect
+        frozen = {}
+        for option in ("foreground", "background", "bordercolor", "lightcolor", "darkcolor"):
+            value = self.style.lookup(base, option)
+            if value:
+                frozen[option] = [("!disabled", value)]
+        self.style.map(self.STYLE, **frozen)
 
 
 app = MainWindow()
-
 app.mainloop()
-
